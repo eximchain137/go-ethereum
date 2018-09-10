@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -43,6 +44,8 @@ const (
 var (
 	errNoMiningWork      = errors.New("no mining work available yet")
 	errInvalidSealResult = errors.New("invalid or stale proof-of-work solution")
+	// errUnauthorized is returned if a header is signed by a non-authorized entity.
+	errUnauthorized = errors.New("unauthorized")
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
@@ -59,6 +62,12 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, resu
 		}
 		return nil
 	}
+
+	// TODO: Bail out if we're unauthorized to sign a block
+	if ok, err := ethash.isBlockMaker(block.Coinbase()); !ok {
+		return err
+	}
+
 	// If we're running a shared PoW, delegate sealing to it
 	if ethash.shared != nil {
 		return ethash.shared.Seal(chain, block, results, stop)
@@ -169,6 +178,19 @@ search:
 				header.MixDigest = common.BytesToHash(digest)
 
 				// Seal and return a block (if still needed)
+				// TODO: Sign all the things! and then seal
+				// Don't hold the signer fields for the entire sealing procedure
+				ethash.slock.RLock()
+				signer, signFn := ethash.signer, ethash.signFn
+				ethash.slock.RUnlock()
+
+				sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+				if err != nil {
+					panic(err)
+				}
+				//TODO:allocate space before so can copy now
+				copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+
 				select {
 				case found <- block.WithSeal(header):
 					logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)

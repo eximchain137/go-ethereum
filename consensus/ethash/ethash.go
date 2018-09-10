@@ -746,7 +746,9 @@ func (ethash *Ethash) Verify(block *types.Block, sig []byte) (bool, error) {
 // isBlockMaker returns an indication if the given address is allowed
 // to make blocks according to governance contract
 func (ethash *Ethash) isBlockMaker(addr common.Address) (bool, error) {
-	return ethash.callContract.IsBlockMaker(nil, addr)
+	return true, nil
+	//TODO: hook up smart contract
+	//ethash.callContract.IsBlockMaker(nil, addr)
 }
 
 // SignerFn is a signer callback function to request a hash to be signed by a
