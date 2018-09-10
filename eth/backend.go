@@ -376,6 +376,17 @@ func (s *Ethereum) StartMining(threads int) error {
 			}
 			clique.Authorize(eb, wallet.SignHash)
 		}
+		//DONE: Add key to ethash consensus engine to allow miners to sign extra data
+		//TODO: refactor into inject services with ethereum.InjectClient(..)
+		if ethash, ok := s.engine.(*ethash.Ethash); ok {
+			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
+			if wallet == nil || err != nil {
+				log.Error("Etherbase account unavailable locally", "err", err)
+				return fmt.Errorf("signer missing: %v", err)
+			}
+			ethash.Authorize(eb, wallet.SignHash)
+		}
+
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.
 		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)

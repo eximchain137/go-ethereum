@@ -34,11 +34,17 @@ import (
 	"unsafe"
 
 	mmap "github.com/edsrzf/mmap-go"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/hashicorp/golang-lru/simplelru"
 )
@@ -464,6 +470,12 @@ type Ethash struct {
 	lock      sync.Mutex      // Ensures thread safety for the in-memory caches and mining fields
 	closeOnce sync.Once       // Ensures exit channel will not be closed twice.
 	exitCh    chan chan error // Notification channel to exiting backend threads
+
+	signer       common.Address // Ethereum address of the signing key
+	signFn       SignerFn       // Signer function to authorize hashes with
+	slock        sync.RWMutex   // Protects the signer fields
+	callContract *VotingContractCaller
+	//signatures   *lru.ARCCache  // Signatures of recent blocks to speed up mining
 }
 
 // New creates a full sized ethash PoW scheme and starts a background thread for
@@ -714,4 +726,131 @@ func (ethash *Ethash) APIs(chain consensus.ChainReader) []rpc.API {
 // dataset.
 func SeedHash(block uint64) []byte {
 	return seedHash(block)
+}
+
+// Verify : This signature in extradata field is verified during block import and ensures that the
+// block is created by a party that is allowed to create blocks.
+func (ethash *Ethash) Verify(block *types.Block, sig []byte) (bool, error) {
+	// Given a header check who the extra data is signed by and make sure they can create blocks
+	signer, err := ecrecover(block.Header())
+	if err != nil {
+		return false, err
+	}
+	ok, err := ethash.isBlockMaker(signer)
+	if ok {
+		return true, nil
+	}
+	return false, err
+}
+
+// isBlockMaker returns an indication if the given address is allowed
+// to make blocks according to governance contract
+func (ethash *Ethash) isBlockMaker(addr common.Address) (bool, error) {
+	return ethash.callContract.IsBlockMaker(nil, addr)
+}
+
+// SignerFn is a signer callback function to request a hash to be signed by a
+// backing account.
+type SignerFn func(accounts.Account, []byte) ([]byte, error)
+
+// Authorize injects a private key into the consensus engine to mint new blocks
+// with.
+func (ethash *Ethash) Authorize(signer common.Address, signFn SignerFn) {
+	ethash.lock.Lock()
+	defer ethash.lock.Unlock()
+	ethash.signer = signer
+	ethash.signFn = signFn
+}
+
+// AuthorizeClient injects am rpc client into the consensus engine to mint new blocks
+// with.
+func (ethash *Ethash) AuthorizeClient(client *rpc.Client) error {
+	ethash.lock.Lock()
+	defer ethash.lock.Unlock()
+	ethClient := ethclient.NewClient(client)
+	callContract, err := NewVotingContractCaller(params.QuorumVotingContractAddr, ethClient)
+	if err != nil {
+		panic(err)
+	}
+	ethash.callContract = callContract
+	return err
+
+}
+
+// Weyl proof-of-authority protocol constants.
+var (
+	//inmemorySignatures = 1024                     // Number of recent blocks to keep in memory
+	//extraVanity        = 32                       // Fixed number of extra-data prefix bytes reserved for signer vanity
+	extraSeal = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
+)
+var (
+	// errMissingSignature is returned if a block's extra-data section doesn't seem
+	// to contain a 65 byte secp256k1 signature.
+	errMissingSignature = errors.New("extra-data 65 byte suffix signature missing")
+)
+
+// ecrecover extracts the Ethereum account address from a signed header.
+// TODO: add in cache sigcache *lru.ARCCache
+func ecrecover(header *types.Header) (common.Address, error) {
+	// If the signature's already cached, return that
+	// hash := header.Hash()
+	// if address, known := sigcache.Get(hash); known {
+	// 	return address.(common.Address), nil
+	// }
+	// Retrieve the signature from the header extra-data
+	if len(header.Extra) < extraSeal {
+		return common.Address{}, errMissingSignature
+	}
+	signature := header.Extra[len(header.Extra)-extraSeal:]
+	// Recover the public key and the Ethereum address
+	pubkey, err := crypto.Ecrecover(sigHash(header).Bytes(), signature)
+	if err != nil {
+		return common.Address{}, err
+	}
+	var signer common.Address
+	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+	//sigcache.Add(hash, signer)
+	return signer, nil
+}
+
+func sigHash(header *types.Header) (hash common.Hash) {
+	hasher := sha3.NewKeccak256()
+	rlp.Encode(hasher, []interface{}{
+		header.ParentHash,
+		header.UncleHash,
+		header.Coinbase,
+		header.Root,
+		header.TxHash,
+		header.ReceiptHash,
+		header.Bloom,
+		header.Difficulty,
+		header.Number,
+		header.GasLimit,
+		header.GasUsed,
+		header.Time,
+		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
+		header.MixDigest,
+		header.Nonce,
+	})
+	hasher.Sum(hash[:0])
+	return hash
+}
+
+// Sign implements weyl.Backend.Sign will
+// Quorum blocks contain a signature of the header in the Extra field.
+// This signature is verified during block import and ensures that the
+// block is created by a party that is allowed to create blocks.
+func (ethash *Ethash) Sign(header *types.Header) ([]byte, error) {
+	// Don't hold the signer fields for the entire sealing procedure
+	ethash.slock.RLock()
+	signer, signFn := ethash.signer, ethash.signFn
+	ethash.slock.RUnlock()
+
+	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+	if err != nil {
+		return nil, err
+	}
+	//TODO: add signature to header before sealing
+	//copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+	return sighash, nil
 }

@@ -327,6 +327,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			}
 		}
 	}()
+
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
 		// Mining only makes sense if a full Ethereum node is running
@@ -336,6 +337,11 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		var ethereum *eth.Ethereum
 		if err := stack.Service(&ethereum); err != nil {
 			utils.Fatalf("Ethereum service not running: %v", err)
+		}
+		//DONE: INSTANTIATE CLIENT TO INJECT IN TO ENGINE
+		client, err := stack.Attach()
+		if err != nil {
+			utils.Fatalf("Unable to attach to node: %v", err)
 		}
 		// Set the gas price to the limits from the CLI and start mining
 		gasprice := utils.GlobalBig(ctx, utils.MinerLegacyGasPriceFlag.Name)
@@ -347,6 +353,10 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		threads := ctx.GlobalInt(utils.MinerLegacyThreadsFlag.Name)
 		if ctx.GlobalIsSet(utils.MinerThreadsFlag.Name) {
 			threads = ctx.GlobalInt(utils.MinerThreadsFlag.Name)
+		}
+		//Attach a client then start mining
+		if err := ethereum.InjectClient(client); err != nil {
+			utils.Fatalf("Failed to start block voting: %v", err)
 		}
 		if err := ethereum.StartMining(threads); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)
