@@ -385,8 +385,9 @@ func (s *Ethereum) StartMining(threads int) error {
 				return fmt.Errorf("signer missing: %v", err)
 			}
 			ethash.Authorize(eb, wallet.SignHash)
-		}
 
+		}
+		log.Info("WEYL CONSENSUS: Add key to ethash consensus engine to allow miners to sign extra data", "key", eb)
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.
 		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)

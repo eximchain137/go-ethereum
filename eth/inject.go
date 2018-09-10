@@ -2,6 +2,7 @@ package eth
 
 import (
 	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -13,6 +14,8 @@ func (s *Ethereum) InjectClient(client *rpc.Client) error {
 		if err != nil {
 			return err
 		}
+		log.Info("WEYL CONSENSUS: Add rpc client to ethash consensus engine to call out to smart contract", "injected", err)
+
 	}
 	return nil
 }
