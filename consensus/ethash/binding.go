@@ -1,5 +1,5 @@
-// This file is an automatically generated Go binding. Do not modify as any
-// change will likely be lost upon the next re-generation!
+// Code generated - DO NOT EDIT.
+// This file is a generated binding and any manual changes will be lost.
 
 package ethash
 
@@ -7,19 +7,22 @@ import (
 	"math/big"
 	"strings"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
 )
 
 // VotingContractABI is the input ABI used to generate the binding from.
-const VotingContractABI = `[{"constant":false,"inputs":[{"name":"threshold","type":"uint256"}],"name":"setVoteThreshold","outputs":[],"payable":false,"type":"function","stateMutability":"nonpayable"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"removeBlockMaker","outputs":[],"payable":false,"type":"function","stateMutability":"nonpayable"},{"constant":true,"inputs":[],"name":"voterCount","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"canCreateBlocks","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[],"name":"voteThreshold","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[{"name":"height","type":"uint256"}],"name":"getCanonHash","outputs":[{"name":"","type":"bytes32"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":false,"inputs":[{"name":"height","type":"uint256"},{"name":"hash","type":"bytes32"}],"name":"vote","outputs":[],"payable":false,"type":"function","stateMutability":"nonpayable"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"addBlockMaker","outputs":[],"payable":false,"type":"function","stateMutability":"nonpayable"},{"constant":true,"inputs":[],"name":"governanceAddress","outputs":[{"name":"","type":"address"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"removeVoter","outputs":[],"payable":false,"type":"function","stateMutability":"nonpayable"},{"constant":true,"inputs":[{"name":"height","type":"uint256"},{"name":"n","type":"uint256"}],"name":"getEntry","outputs":[{"name":"","type":"bytes32"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"isVoter","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"canVote","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[],"name":"blockMakerCount","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[],"name":"getSize","outputs":[{"name":"","type":"uint256"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":true,"inputs":[{"name":"addr","type":"address"}],"name":"isBlockMaker","outputs":[{"name":"","type":"bool"}],"payable":false,"type":"function","stateMutability":"view"},{"constant":false,"inputs":[{"name":"addr","type":"address"}],"name":"addVoter","outputs":[],"payable":false,"type":"function","stateMutability":"nonpayable"},{"anonymous":false,"inputs":[{"indexed":true,"name":"sender","type":"address"},{"indexed":false,"name":"blockNumber","type":"uint256"},{"indexed":false,"name":"blockHash","type":"bytes32"}],"name":"Vote","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"","type":"address"}],"name":"AddVoter","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"","type":"address"}],"name":"RemovedVoter","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"","type":"address"}],"name":"AddBlockMaker","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"","type":"address"}],"name":"RemovedBlockMaker","type":"event"}]`
+const VotingContractABI = "[{\"constant\":true,\"inputs\":[],\"name\":\"voterCount\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"canCreateBlocks\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"voteThreshold\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"governanceAddress\",\"outputs\":[{\"name\":\"\",\"type\":\"address\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"\",\"type\":\"address\"}],\"name\":\"canVote\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"blockMakerCount\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"blockNumber\",\"type\":\"uint256\"},{\"indexed\":false,\"name\":\"blockHash\",\"type\":\"bytes32\"}],\"name\":\"Vote\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"\",\"type\":\"address\"}],\"name\":\"AddVoter\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"\",\"type\":\"address\"}],\"name\":\"RemovedVoter\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"\",\"type\":\"address\"}],\"name\":\"AddBlockMaker\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"name\":\"\",\"type\":\"address\"}],\"name\":\"RemovedBlockMaker\",\"type\":\"event\"},{\"constant\":false,\"inputs\":[{\"name\":\"threshold\",\"type\":\"uint256\"}],\"name\":\"setVoteThreshold\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"height\",\"type\":\"uint256\"},{\"name\":\"hash\",\"type\":\"bytes32\"}],\"name\":\"vote\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"height\",\"type\":\"uint256\"}],\"name\":\"getCanonHash\",\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"addVoter\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"removeVoter\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isVoter\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"addBlockMaker\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"removeBlockMaker\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"addr\",\"type\":\"address\"}],\"name\":\"isBlockMaker\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"getSize\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"height\",\"type\":\"uint256\"},{\"name\":\"n\",\"type\":\"uint256\"}],\"name\":\"getEntry\",\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"}]"
 
 // VotingContract is an auto generated Go binding around an Ethereum contract.
 type VotingContract struct {
 	VotingContractCaller     // Read-only binding to the contract
 	VotingContractTransactor // Write-only binding to the contract
+	VotingContractFilterer   // Log filterer for contract events
 }
 
 // VotingContractCaller is an auto generated read-only Go binding around an Ethereum contract.
@@ -29,6 +32,11 @@ type VotingContractCaller struct {
 
 // VotingContractTransactor is an auto generated write-only Go binding around an Ethereum contract.
 type VotingContractTransactor struct {
+	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+}
+
+// VotingContractFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
+type VotingContractFilterer struct {
 	contract *bind.BoundContract // Generic contract wrapper for the low level calls
 }
 
@@ -71,16 +79,16 @@ type VotingContractTransactorRaw struct {
 
 // NewVotingContract creates a new instance of VotingContract, bound to a specific deployed contract.
 func NewVotingContract(address common.Address, backend bind.ContractBackend) (*VotingContract, error) {
-	contract, err := bindVotingContract(address, backend, backend)
+	contract, err := bindVotingContract(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &VotingContract{VotingContractCaller: VotingContractCaller{contract: contract}, VotingContractTransactor: VotingContractTransactor{contract: contract}}, nil
+	return &VotingContract{VotingContractCaller: VotingContractCaller{contract: contract}, VotingContractTransactor: VotingContractTransactor{contract: contract}, VotingContractFilterer: VotingContractFilterer{contract: contract}}, nil
 }
 
 // NewVotingContractCaller creates a new read-only instance of VotingContract, bound to a specific deployed contract.
 func NewVotingContractCaller(address common.Address, caller bind.ContractCaller) (*VotingContractCaller, error) {
-	contract, err := bindVotingContract(address, caller, nil)
+	contract, err := bindVotingContract(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -89,20 +97,29 @@ func NewVotingContractCaller(address common.Address, caller bind.ContractCaller)
 
 // NewVotingContractTransactor creates a new write-only instance of VotingContract, bound to a specific deployed contract.
 func NewVotingContractTransactor(address common.Address, transactor bind.ContractTransactor) (*VotingContractTransactor, error) {
-	contract, err := bindVotingContract(address, nil, transactor)
+	contract, err := bindVotingContract(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
 	return &VotingContractTransactor{contract: contract}, nil
 }
 
+// NewVotingContractFilterer creates a new log filterer instance of VotingContract, bound to a specific deployed contract.
+func NewVotingContractFilterer(address common.Address, filterer bind.ContractFilterer) (*VotingContractFilterer, error) {
+	contract, err := bindVotingContract(address, nil, nil, filterer)
+	if err != nil {
+		return nil, err
+	}
+	return &VotingContractFilterer{contract: contract}, nil
+}
+
 // bindVotingContract binds a generic wrapper to an already deployed contract.
-func bindVotingContract(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor) (*bind.BoundContract, error) {
+func bindVotingContract(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
 	parsed, err := abi.JSON(strings.NewReader(VotingContractABI))
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, nil), nil
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -553,4 +570,626 @@ func (_VotingContract *VotingContractSession) Vote(height *big.Int, hash [32]byt
 // Solidity: function vote(height uint256, hash bytes32) returns()
 func (_VotingContract *VotingContractTransactorSession) Vote(height *big.Int, hash [32]byte) (*types.Transaction, error) {
 	return _VotingContract.Contract.Vote(&_VotingContract.TransactOpts, height, hash)
+}
+
+// VotingContractAddBlockMakerIterator is returned from FilterAddBlockMaker and is used to iterate over the raw logs and unpacked data for AddBlockMaker events raised by the VotingContract contract.
+type VotingContractAddBlockMakerIterator struct {
+	Event *VotingContractAddBlockMaker // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *VotingContractAddBlockMakerIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VotingContractAddBlockMaker)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(VotingContractAddBlockMaker)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *VotingContractAddBlockMakerIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *VotingContractAddBlockMakerIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// VotingContractAddBlockMaker represents a AddBlockMaker event raised by the VotingContract contract.
+type VotingContractAddBlockMaker struct {
+	common.Address
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterAddBlockMaker is a free log retrieval operation binding the contract event 0x1a4ce6942f7aa91856332e618fc90159f13a340611a308f5d7327ba0707e5685.
+//
+// Solidity: e AddBlockMaker( address)
+func (_VotingContract *VotingContractFilterer) FilterAddBlockMaker(opts *bind.FilterOpts) (*VotingContractAddBlockMakerIterator, error) {
+
+	logs, sub, err := _VotingContract.contract.FilterLogs(opts, "AddBlockMaker")
+	if err != nil {
+		return nil, err
+	}
+	return &VotingContractAddBlockMakerIterator{contract: _VotingContract.contract, event: "AddBlockMaker", logs: logs, sub: sub}, nil
+}
+
+// WatchAddBlockMaker is a free log subscription operation binding the contract event 0x1a4ce6942f7aa91856332e618fc90159f13a340611a308f5d7327ba0707e5685.
+//
+// Solidity: e AddBlockMaker( address)
+func (_VotingContract *VotingContractFilterer) WatchAddBlockMaker(opts *bind.WatchOpts, sink chan<- *VotingContractAddBlockMaker) (event.Subscription, error) {
+
+	logs, sub, err := _VotingContract.contract.WatchLogs(opts, "AddBlockMaker")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(VotingContractAddBlockMaker)
+				if err := _VotingContract.contract.UnpackLog(event, "AddBlockMaker", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// VotingContractAddVoterIterator is returned from FilterAddVoter and is used to iterate over the raw logs and unpacked data for AddVoter events raised by the VotingContract contract.
+type VotingContractAddVoterIterator struct {
+	Event *VotingContractAddVoter // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *VotingContractAddVoterIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VotingContractAddVoter)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(VotingContractAddVoter)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *VotingContractAddVoterIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *VotingContractAddVoterIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// VotingContractAddVoter represents a AddVoter event raised by the VotingContract contract.
+type VotingContractAddVoter struct {
+	common.Address
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterAddVoter is a free log retrieval operation binding the contract event 0x0ad2eca75347acd5160276fe4b5dad46987e4ff4af9e574195e3e9bc15d7e0ff.
+//
+// Solidity: e AddVoter( address)
+func (_VotingContract *VotingContractFilterer) FilterAddVoter(opts *bind.FilterOpts) (*VotingContractAddVoterIterator, error) {
+
+	logs, sub, err := _VotingContract.contract.FilterLogs(opts, "AddVoter")
+	if err != nil {
+		return nil, err
+	}
+	return &VotingContractAddVoterIterator{contract: _VotingContract.contract, event: "AddVoter", logs: logs, sub: sub}, nil
+}
+
+// WatchAddVoter is a free log subscription operation binding the contract event 0x0ad2eca75347acd5160276fe4b5dad46987e4ff4af9e574195e3e9bc15d7e0ff.
+//
+// Solidity: e AddVoter( address)
+func (_VotingContract *VotingContractFilterer) WatchAddVoter(opts *bind.WatchOpts, sink chan<- *VotingContractAddVoter) (event.Subscription, error) {
+
+	logs, sub, err := _VotingContract.contract.WatchLogs(opts, "AddVoter")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(VotingContractAddVoter)
+				if err := _VotingContract.contract.UnpackLog(event, "AddVoter", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// VotingContractRemovedBlockMakerIterator is returned from FilterRemovedBlockMaker and is used to iterate over the raw logs and unpacked data for RemovedBlockMaker events raised by the VotingContract contract.
+type VotingContractRemovedBlockMakerIterator struct {
+	Event *VotingContractRemovedBlockMaker // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *VotingContractRemovedBlockMakerIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VotingContractRemovedBlockMaker)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(VotingContractRemovedBlockMaker)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *VotingContractRemovedBlockMakerIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *VotingContractRemovedBlockMakerIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// VotingContractRemovedBlockMaker represents a RemovedBlockMaker event raised by the VotingContract contract.
+type VotingContractRemovedBlockMaker struct {
+	common.Address
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterRemovedBlockMaker is a free log retrieval operation binding the contract event 0x8cee3054364d6799f1c8962580ad61273d9d38ca1ff26516bd1ad23c099a6022.
+//
+// Solidity: e RemovedBlockMaker( address)
+func (_VotingContract *VotingContractFilterer) FilterRemovedBlockMaker(opts *bind.FilterOpts) (*VotingContractRemovedBlockMakerIterator, error) {
+
+	logs, sub, err := _VotingContract.contract.FilterLogs(opts, "RemovedBlockMaker")
+	if err != nil {
+		return nil, err
+	}
+	return &VotingContractRemovedBlockMakerIterator{contract: _VotingContract.contract, event: "RemovedBlockMaker", logs: logs, sub: sub}, nil
+}
+
+// WatchRemovedBlockMaker is a free log subscription operation binding the contract event 0x8cee3054364d6799f1c8962580ad61273d9d38ca1ff26516bd1ad23c099a6022.
+//
+// Solidity: e RemovedBlockMaker( address)
+func (_VotingContract *VotingContractFilterer) WatchRemovedBlockMaker(opts *bind.WatchOpts, sink chan<- *VotingContractRemovedBlockMaker) (event.Subscription, error) {
+
+	logs, sub, err := _VotingContract.contract.WatchLogs(opts, "RemovedBlockMaker")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(VotingContractRemovedBlockMaker)
+				if err := _VotingContract.contract.UnpackLog(event, "RemovedBlockMaker", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// VotingContractRemovedVoterIterator is returned from FilterRemovedVoter and is used to iterate over the raw logs and unpacked data for RemovedVoter events raised by the VotingContract contract.
+type VotingContractRemovedVoterIterator struct {
+	Event *VotingContractRemovedVoter // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *VotingContractRemovedVoterIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VotingContractRemovedVoter)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(VotingContractRemovedVoter)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *VotingContractRemovedVoterIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *VotingContractRemovedVoterIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// VotingContractRemovedVoter represents a RemovedVoter event raised by the VotingContract contract.
+type VotingContractRemovedVoter struct {
+	common.Address
+	Raw types.Log // Blockchain specific contextual infos
+}
+
+// FilterRemovedVoter is a free log retrieval operation binding the contract event 0x183393fc5cffbfc7d03d623966b85f76b9430f42d3aada2ac3f3deabc78899e8.
+//
+// Solidity: e RemovedVoter( address)
+func (_VotingContract *VotingContractFilterer) FilterRemovedVoter(opts *bind.FilterOpts) (*VotingContractRemovedVoterIterator, error) {
+
+	logs, sub, err := _VotingContract.contract.FilterLogs(opts, "RemovedVoter")
+	if err != nil {
+		return nil, err
+	}
+	return &VotingContractRemovedVoterIterator{contract: _VotingContract.contract, event: "RemovedVoter", logs: logs, sub: sub}, nil
+}
+
+// WatchRemovedVoter is a free log subscription operation binding the contract event 0x183393fc5cffbfc7d03d623966b85f76b9430f42d3aada2ac3f3deabc78899e8.
+//
+// Solidity: e RemovedVoter( address)
+func (_VotingContract *VotingContractFilterer) WatchRemovedVoter(opts *bind.WatchOpts, sink chan<- *VotingContractRemovedVoter) (event.Subscription, error) {
+
+	logs, sub, err := _VotingContract.contract.WatchLogs(opts, "RemovedVoter")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(VotingContractRemovedVoter)
+				if err := _VotingContract.contract.UnpackLog(event, "RemovedVoter", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// VotingContractVoteIterator is returned from FilterVote and is used to iterate over the raw logs and unpacked data for Vote events raised by the VotingContract contract.
+type VotingContractVoteIterator struct {
+	Event *VotingContractVote // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *VotingContractVoteIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VotingContractVote)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(VotingContractVote)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *VotingContractVoteIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *VotingContractVoteIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// VotingContractVote represents a Vote event raised by the VotingContract contract.
+type VotingContractVote struct {
+	Sender      common.Address
+	BlockNumber *big.Int
+	BlockHash   [32]byte
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterVote is a free log retrieval operation binding the contract event 0x3d03ba7f4b5227cdb385f2610906e5bcee147171603ec40005b30915ad20e258.
+//
+// Solidity: e Vote(sender indexed address, blockNumber uint256, blockHash bytes32)
+func (_VotingContract *VotingContractFilterer) FilterVote(opts *bind.FilterOpts, sender []common.Address) (*VotingContractVoteIterator, error) {
+
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _VotingContract.contract.FilterLogs(opts, "Vote", senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &VotingContractVoteIterator{contract: _VotingContract.contract, event: "Vote", logs: logs, sub: sub}, nil
+}
+
+// WatchVote is a free log subscription operation binding the contract event 0x3d03ba7f4b5227cdb385f2610906e5bcee147171603ec40005b30915ad20e258.
+//
+// Solidity: e Vote(sender indexed address, blockNumber uint256, blockHash bytes32)
+func (_VotingContract *VotingContractFilterer) WatchVote(opts *bind.WatchOpts, sink chan<- *VotingContractVote, sender []common.Address) (event.Subscription, error) {
+
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+
+	logs, sub, err := _VotingContract.contract.WatchLogs(opts, "Vote", senderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(VotingContractVote)
+				if err := _VotingContract.contract.UnpackLog(event, "Vote", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
 }

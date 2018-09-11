@@ -474,7 +474,7 @@ type Ethash struct {
 	signer       common.Address // Ethereum address of the signing key
 	signFn       SignerFn       // Signer function to authorize hashes with
 	slock        sync.RWMutex   // Protects the signer fields
-	callContract *VotingContractCaller
+	callContract *VotingContract
 	//signatures   *lru.ARCCache  // Signatures of recent blocks to speed up mining
 }
 
@@ -746,9 +746,12 @@ func (ethash *Ethash) Verify(block *types.Block, sig []byte) (bool, error) {
 // isBlockMaker returns an indication if the given address is allowed
 // to make blocks according to governance contract
 func (ethash *Ethash) isBlockMaker(addr common.Address) (bool, error) {
-	return true, nil
-	//TODO: hook up smart contract governance
-	//ethash.callContract.IsBlockMaker(nil, addr)
+	//DONE: hook up smart contract governance
+	ok, err := ethash.callContract.IsBlockMaker(nil, addr)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 // SignerFn is a signer callback function to request a hash to be signed by a
@@ -770,7 +773,8 @@ func (ethash *Ethash) AuthorizeClient(client *rpc.Client) error {
 	ethash.lock.Lock()
 	defer ethash.lock.Unlock()
 	ethClient := ethclient.NewClient(client)
-	callContract, err := NewVotingContractCaller(params.QuorumVotingContractAddr, ethClient)
+
+	callContract, err := NewVotingContract(params.QuorumVotingContractAddr, ethClient)
 	if err != nil {
 		panic(err)
 	}
