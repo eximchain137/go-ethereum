@@ -747,7 +747,7 @@ func (ethash *Ethash) Verify(block *types.Block, sig []byte) (bool, error) {
 // to make blocks according to governance contract
 func (ethash *Ethash) isBlockMaker(addr common.Address) (bool, error) {
 	return true, nil
-	//TODO: hook up smart contract
+	//TODO: hook up smart contract governance
 	//ethash.callContract.IsBlockMaker(nil, addr)
 }
 
@@ -817,6 +817,9 @@ func ecrecover(header *types.Header) (common.Address, error) {
 
 func sigHash(header *types.Header) (hash common.Hash) {
 	hasher := sha3.NewKeccak256()
+	//dont include extra data in sealhash
+	//header.Extra should be 32(vanity)+65(signature) bytes,
+	//assuming we allocated in Prepare, grab everthing before len(header.Extra)-65 (vanity)
 	rlp.Encode(hasher, []interface{}{
 		header.ParentHash,
 		header.UncleHash,
@@ -831,8 +834,6 @@ func sigHash(header *types.Header) (hash common.Hash) {
 		header.GasUsed,
 		header.Time,
 		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
-		header.MixDigest,
-		header.Nonce,
 	})
 	hasher.Sum(hash[:0])
 	return hash

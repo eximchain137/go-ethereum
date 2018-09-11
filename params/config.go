@@ -33,10 +33,11 @@ var (
 //DONE: modify chain config to test EIPs
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the Eximchain network.
+	// TODO: DAOForkBlock support;  we need extra data for ordinary consensus.
 	MainnetChainConfig = &ChainConfig{
 		ChainID:             big.NewInt(1),
 		HomesteadBlock:      big.NewInt(1),
-		DAOForkBlock:        big.NewInt(1),
+		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(1),
 		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),

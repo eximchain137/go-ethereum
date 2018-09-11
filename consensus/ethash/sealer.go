@@ -138,9 +138,27 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, resu
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
 func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
+	// grab the key
+	ethash.slock.RLock()
+	signer, signFn := ethash.signer, ethash.signFn
+	ethash.slock.RUnlock()
+	// grab the header
+	header := block.Header()
+	log.Info("WEYL CONSENSUS:", "address", signer)
+	log.Info("WEYL CONSENSUS:", "HeaderBC", header.Extra)
+	// sign the SealHash
+	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+	if err != nil {
+		// could not sign hash
+		panic(err)
+	}
+
+	//copy signature into allocated Extra data
+	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+	log.Info("WEYL CONSENSUS:", "HeaderAD", header.Extra)
+
 	// Extract some data from the header
 	var (
-		header  = block.Header()
 		hash    = ethash.SealHash(header).Bytes()
 		target  = new(big.Int).Div(two256, header.Difficulty)
 		number  = header.Number.Uint64()
@@ -178,19 +196,6 @@ search:
 				header.MixDigest = common.BytesToHash(digest)
 
 				// Seal and return a block (if still needed)
-				// TODO: Sign all the things! and then seal
-				// Don't hold the signer fields for the entire sealing procedure
-				ethash.slock.RLock()
-				signer, signFn := ethash.signer, ethash.signFn
-				ethash.slock.RUnlock()
-
-				sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
-				if err != nil {
-					panic(err)
-				}
-				//TODO:allocate space before so can copy now
-				copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
-
 				select {
 				case found <- block.WithSeal(header):
 					logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)

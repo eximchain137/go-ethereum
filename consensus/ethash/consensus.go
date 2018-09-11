@@ -30,9 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -569,12 +567,14 @@ func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header)
 		return consensus.ErrUnknownAncestor
 	}
 	header.Difficulty = ethash.CalcDifficulty(chain, header.Time.Uint64(), parent)
-
-	// TODO: Ensure the extra data has all it's components
+	// DONE: Ensure the extra data has all it's components
+	// pad the vanity extra data incase it was set (max is 32 bytes)
 	if len(header.Extra) < extraVanity {
 		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
 	}
+	// grab the right padded vanity
 	header.Extra = header.Extra[:extraVanity]
+	// add 65bytes to it for blockhash signature
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
 	return nil
@@ -593,25 +593,7 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 
 // SealHash returns the hash of a block prior to it being sealed.
 func (ethash *Ethash) SealHash(header *types.Header) (hash common.Hash) {
-	hasher := sha3.NewKeccak256()
-
-	rlp.Encode(hasher, []interface{}{
-		header.ParentHash,
-		header.UncleHash,
-		header.Coinbase,
-		header.Root,
-		header.TxHash,
-		header.ReceiptHash,
-		header.Bloom,
-		header.Difficulty,
-		header.Number,
-		header.GasLimit,
-		header.GasUsed,
-		header.Time,
-		header.Extra,
-	})
-	hasher.Sum(hash[:0])
-	return hash
+	return sigHash(header)
 }
 
 // Some weird constants to avoid constant memory allocs for them.
