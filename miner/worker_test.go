@@ -16,6 +16,7 @@
 
 package miner
 
+//TODO: final debug worker!!!!
 import (
 	"math/big"
 	"testing"
@@ -123,7 +124,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 		uncleBlock: blocks[0],
 	}
 }
-
+func (b *testWorkerBackend) ChainDb() ethdb.Database      { return b.db }
 func (b *testWorkerBackend) BlockChain() *core.BlockChain { return b.chain }
 func (b *testWorkerBackend) TxPool() *core.TxPool         { return b.txPool }
 func (b *testWorkerBackend) PostChainEvents(events []interface{}) {

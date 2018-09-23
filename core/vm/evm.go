@@ -22,9 +22,21 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
+
+// note: Privacy, States, and Value Transfer
+//
+// In private transactions there is a tricky issue in one specific case when there is call from private state to public state:
+// * The state db is selected based on the callee (public)
+// * With every call there is an associated value transfer -- in our case this is 0
+// * Thus, there is an implicit transfer of 0 value from the caller to callee on the public state
+// * However in our scenario the caller is private
+// * Thus, the transfer creates a ghost of the private account on the public state with no value, code, or storage
+//
+// The solution is to skip this transfer of 0 value under private transactions
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
 // deployed contract addresses (relevant after the account abstraction).
@@ -61,6 +73,7 @@ func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
 				}(evm.interpreter)
 				evm.interpreter = interpreter
 			}
+			// DONE: implement private transaction interpreter rules
 			return interpreter.Run(contract, input)
 		}
 	}
@@ -89,6 +102,9 @@ type Context struct {
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 }
+
+type PublicState StateDB
+type PrivateState StateDB
 
 // EVM is the Ethereum Virtual Machine base object and provides
 // the necessary tools to run a contract on the given state with
@@ -125,11 +141,21 @@ type EVM struct {
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
 	callGasTemp uint64
+
+	// Quorum additions:
+	publicState       PublicState
+	privateState      PrivateState
+	states            [1027]*state.StateDB // TODO(joel) we should be able to get away with 1024 or maybe 1025
+	currentStateDepth uint
+	// This flag has different semantics from the `Interpreter:readOnly` flag (though they interact and could maybe
+	// be simplified). This is set by Quorum when it's inside a Private State -> Public State read.
+	quorumReadOnly bool
+	readOnlyDepth  uint
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
-func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
+func NewEVM(ctx Context, statedb, privateState StateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
 	evm := &EVM{
 		Context:      ctx,
 		StateDB:      statedb,
@@ -137,7 +163,12 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 		chainConfig:  chainConfig,
 		chainRules:   chainConfig.Rules(ctx.BlockNumber),
 		interpreters: make([]Interpreter, 1),
+
+		publicState:  statedb,
+		privateState: privateState,
 	}
+
+	evm.Push(privateState)
 
 	evm.interpreters[0] = NewEVMInterpreter(evm, vmConfig)
 	evm.interpreter = evm.interpreters[0]
@@ -164,6 +195,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
+	//NOTE: Set the statedb to use checks if addr exists in private state first then public
+	evm.Push(getDualState(evm, addr))
+	defer func() { evm.Pop() }()
 
 	// Fail if we're trying to execute above the call depth limit
 	if evm.depth > int(params.CallCreateDepth) {
@@ -193,6 +227,11 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}
 		evm.StateDB.CreateAccount(addr)
 	}
+
+	// DONE: skip transfer if value /= 0 (see note: Quorum, States, and Value Transfer)
+	if value.Sign() != 0 && evm.quorumReadOnly {
+		return nil, gas, ErrReadOnlyValueTransfer
+	}
 	evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
 
 	// Initialise a new contract and set the code that is to be used by the EVM.
@@ -210,6 +249,8 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.vmConfig.Tracer.CaptureEnd(ret, gas-contract.Gas, time.Since(start), err)
 		}()
 	}
+	// NOTE: can't do (A) > B > (A) so private caller cant execute on public callee
+	// DONE: implement private transaction interpreter
 	ret, err = run(evm, contract, input)
 
 	// When an error was returned by the EVM or when setting the creation code
@@ -236,6 +277,9 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 		return nil, gas, nil
 	}
 
+	evm.Push(getDualState(evm, addr))
+	defer func() { evm.Pop() }()
+
 	// Fail if we're trying to execute above the call depth limit
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
@@ -255,6 +299,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	contract := NewContract(caller, to, value, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
+	// DONE: implement private transaction interpreter rules
 	ret, err = run(evm, contract, input)
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
@@ -274,6 +319,10 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
+
+	evm.Push(getDualState(evm, addr))
+	defer func() { evm.Pop() }()
+
 	// Fail if we're trying to execute above the call depth limit
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
@@ -351,8 +400,24 @@ func (evm *EVM) create(caller ContractRef, code []byte, gas uint64, value *big.I
 	if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
 		return nil, common.Address{}, gas, ErrInsufficientBalance
 	}
-	nonce := evm.StateDB.GetNonce(caller.Address())
-	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+
+	// Get the right state in case of a dual state environment. If a sender
+	// is a transaction (depth == 0) use the public state to derive the address
+	// and increment the nonce of the public state. If the sender is a contract
+	// (depth > 0) use the private state to derive the nonce and increment the
+	// nonce on the private state only.
+	// NOTE:
+	// If the transaction went to a public contract the private and public state
+	// are the same. from state processor
+	var creatorStateDb StateDB
+	if evm.Depth() > 0 {
+		creatorStateDb = evm.privateState
+	} else {
+		creatorStateDb = evm.publicState
+	}
+
+	nonce := creatorStateDb.GetNonce(caller.Address())
+	creatorStateDb.SetNonce(caller.Address(), nonce+1)
 
 	// Ensure there's no existing contract already at the designated address
 	contractHash := evm.StateDB.GetCodeHash(address)
@@ -364,6 +429,10 @@ func (evm *EVM) create(caller ContractRef, code []byte, gas uint64, value *big.I
 	evm.StateDB.CreateAccount(address)
 	if evm.ChainConfig().IsEIP158(evm.BlockNumber) {
 		evm.StateDB.SetNonce(address, 1)
+	}
+	// DONE: skip transfer if value /= 0 (see note: Quorum, States, and Value Transfer)
+	if value.Sign() != 0 && evm.quorumReadOnly {
+		return nil, common.Address{}, gas, ErrReadOnlyValueTransfer
 	}
 	evm.Transfer(evm.StateDB, caller.Address(), address, value)
 
@@ -436,3 +505,51 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
+
+//TODO: private state EVM semantics
+func getDualState(env *EVM, addr common.Address) StateDB {
+	// priv: (a) -> (b)  (private)
+	// pub:   a  -> [b]  (private -> public)
+	// priv: (a) ->  b   (public)
+	state := env.StateDB
+	if env.PrivateState().Exist(addr) {
+		state = env.PrivateState()
+	} else if env.PublicState().Exist(addr) {
+		state = env.PublicState()
+	}
+
+	return state
+}
+
+func (env *EVM) PublicState() PublicState   { return env.publicState }
+func (env *EVM) PrivateState() PrivateState { return env.privateState }
+func (env *EVM) Push(statedb StateDB) {
+	if env.privateState != statedb {
+		env.quorumReadOnly = true
+		env.readOnlyDepth = env.currentStateDepth
+	}
+
+	if castedStateDb, ok := statedb.(*state.StateDB); ok {
+		env.states[env.currentStateDepth] = castedStateDb
+		env.currentStateDepth++
+	}
+
+	env.StateDB = statedb
+}
+func (env *EVM) Pop() {
+	env.currentStateDepth--
+	if env.quorumReadOnly && env.currentStateDepth == env.readOnlyDepth {
+		env.quorumReadOnly = false
+	}
+	env.StateDB = env.states[env.currentStateDepth-1]
+}
+
+func (env *EVM) Depth() int { return env.depth }
+
+// We only need to revert the current state because when we call from private
+// public state it's read only, there wouldn't be anything to reset.
+// (A)->(B)->C->(B): A failure in (B) wouldn't need to reset C, as C was flagged
+// read only.
+func (self *EVM) RevertToSnapshot(snapshot int) {
+	self.StateDB.RevertToSnapshot(snapshot)
+}

@@ -16,6 +16,7 @@
 
 package core
 
+//TODO: deprecated, extra data used as part of consensus in ethash now as part up quorumchain upgrade to weyl govarnance
 import (
 	"math/big"
 	"testing"

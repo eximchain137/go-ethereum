@@ -190,6 +190,14 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte) (ret []byte, err
 		// Get the operation from the jump table and validate the stack to ensure there are
 		// enough stack items available to perform the operation.
 		op = contract.GetOp(pc)
+
+		//DONE: enforce private/public transaction rules
+		if in.evm.quorumReadOnly && op.isMutating() {
+			return nil, fmt.Errorf("VM in read-only mode. Mutating opcode prohibited")
+		}
+
+		// Get the operation from the jump table matching the opcode and validate the
+		// stack and make sure there enough stack items available to perform the operation
 		operation := in.cfg.JumpTable[op]
 		if !operation.valid {
 			return nil, fmt.Errorf("invalid opcode 0x%x", int(op))
