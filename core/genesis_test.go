@@ -16,6 +16,7 @@
 
 package core
 
+//TODO: add new mainnet genesis hash, removed to prevent accidental chains with eth mainnet genesis blocks
 import (
 	"math/big"
 	"reflect"

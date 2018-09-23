@@ -652,7 +652,8 @@ func (s *PublicBlockChainAPI) doCall(ctx context.Context, args CallArgs, blockNr
 	defer cancel()
 
 	// Get a new instance of the EVM.
-	evm, vmError, err := s.b.GetEVM(ctx, msg, state, header, vmCfg)
+	// TODO: enable private state
+	evm, vmError, err := s.b.GetEVM(ctx, msg, state, state, header, vmCfg)
 	if err != nil {
 		return nil, 0, false, err
 	}

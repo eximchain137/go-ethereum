@@ -75,6 +75,12 @@ type Message interface {
 	Data() []byte
 }
 
+// PrivateMessage implements a private message
+type PrivateMessage interface {
+	Message
+	IsPrivate() bool
+}
+
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
 func IntrinsicGas(data []byte, contractCreation, homestead bool) (uint64, error) {
 	// Set the starting gas for the raw transaction
@@ -177,6 +183,7 @@ func (st *StateTransition) preCheck() error {
 	return st.buyGas()
 }
 
+// TODO: logic for private transaction state transitions (nonce changes and data fetched from encrypted backend)
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the used gas. It returns an error if failed.
 // An error indicates a consensus issue.
@@ -188,6 +195,29 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
+
+	var data []byte
+	isPrivate := false
+	publicState := st.state
+	//TODO: implement PrivateMessage Struct to wrap Message interface
+	if msg, ok := msg.(PrivateMessage); ok && msg.IsPrivate() {
+		isPrivate = true
+		//TODO: actually fetch the private transaction from constellation
+		//data, err = private.P.Receive(st.data)
+		data, err = st.data, nil
+		// Increment the public account nonce if:
+		// 1. Tx is private and *not* a participant of the group and either call or create
+		// 2. Tx is private we are part of the group and is a call
+		// NOTE: smells in original why not pass back error?
+		if err != nil || !contractCreation {
+			publicState.SetNonce(sender.Address(), publicState.GetNonce(sender.Address())+1)
+		}
+		if err != nil {
+			return nil, 0, false, err
+		}
+	} else {
+		data = st.data
+	}
 
 	// Pay intrinsic gas
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
@@ -208,9 +238,24 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if contractCreation {
 		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {
-		// Increment the nonce for the next transaction
-		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		// TODO: Increment the account nonce only if the transaction isn't private.
+		// If the transaction is private it has already been incremented on
+		// the public state.
+		if !isPrivate {
+			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		}
+		var to common.Address
+		if isPrivate {
+			to = *st.msg.To()
+		} else {
+			to = st.to()
+		}
+		//if input is empty for a private smart contract call, return
+		if len(data) == 0 && isPrivate {
+			return nil, 0, false, nil
+		}
+		//TODO: rabbit hole
+		ret, st.gas, vmerr = evm.Call(sender, to, st.data, st.gas, st.value)
 	}
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)
@@ -223,7 +268,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	st.refundGas()
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-
+	if isPrivate {
+		return ret, 0, vmerr != nil, err
+	}
 	return ret, st.gasUsed(), vmerr != nil, err
 }
 
