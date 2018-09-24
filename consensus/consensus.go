@@ -17,6 +17,7 @@
 // Package consensus implements different Ethereum consensus engines.
 package consensus
 
+// NOTE: no consensus changes without EIP
 import (
 	"math/big"
 
