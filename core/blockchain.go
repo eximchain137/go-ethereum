@@ -129,6 +129,8 @@ type BlockChain struct {
 	vmConfig  vm.Config
 
 	badBlocks *lru.Cache // Bad block cache
+
+	privateStateCache state.Database // DONE: Private state database to reuse between imports (contains state cache)
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -161,8 +163,11 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		engine:       engine,
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
+
+		privateStateCache: state.NewDatabase(db),
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
+	//DONE: initialises a new StateProcessor and sets the processor required for making state modifications.
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
 
 	var err error
@@ -191,6 +196,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		}
 	}
 	// Take ownership of this particular state
+	// TODO: Insert private transactions on update
 	go bc.update()
 	return bc, nil
 }
@@ -216,10 +222,18 @@ func (bc *BlockChain) loadLastState() error {
 		log.Warn("Head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
-	// Make sure the state associated with the block is available
+	// Make sure the public state associated with the block is available
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
+		if err := bc.repair(&currentBlock); err != nil {
+			return err
+		}
+	}
+	// TODO: Make sure the private state associated with the block is available in cache
+	if _, err := state.New(rawdb.GetPrivateStateRoot(bc.db, currentBlock.Root()), bc.privateStateCache); err != nil {
+		// Dangling block without a state associated, init from scratch
+		log.Warn("Head private state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 		if err := bc.repair(&currentBlock); err != nil {
 			return err
 		}
@@ -377,13 +391,24 @@ func (bc *BlockChain) Processor() Processor {
 }
 
 // State returns a new mutable state based on the current HEAD block.
-func (bc *BlockChain) State() (*state.StateDB, error) {
+// TODO: Should return public and private state
+func (bc *BlockChain) State() (*state.StateDB, *state.StateDB, error) {
 	return bc.StateAt(bc.CurrentBlock().Root())
 }
 
 // StateAt returns a new mutable state based on a particular point in time.
-func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
-	return state.New(root, bc.stateCache)
+// TODO: Should return public and private state
+func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, *state.StateDB, error) {
+	publicState, err := state.New(root, bc.stateCache)
+	if err != nil {
+		return nil, nil, err
+	}
+	privateState, err := state.New(rawdb.GetPrivateStateRoot(bc.db, root), bc.privateStateCache)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return publicState, privateState, nil
 }
 
 // Reset purges the entire blockchain, restoring it to its genesis state.
@@ -1006,6 +1031,27 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	return n, err
 }
 
+// Given a slice of public receipts and an overlapping (smaller) slice of
+// private receipts, return a new slice where the default for each location is
+// the public receipt but we take the private receipt in each place we have
+// one.
+func mergeReceipts(pub, priv types.Receipts) types.Receipts {
+	m := make(map[common.Hash]*types.Receipt)
+	for _, receipt := range pub {
+		m[receipt.TxHash] = receipt
+	}
+	for _, receipt := range priv {
+		m[receipt.TxHash] = receipt
+	}
+
+	ret := make(types.Receipts, 0, len(pub))
+	for _, pubReceipt := range pub {
+		ret = append(ret, m[pubReceipt.TxHash])
+	}
+
+	return ret
+}
+
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
@@ -1049,6 +1095,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		headers[i] = block.Header()
 		seals[i] = true
 	}
+	//DONE: checks header signature to ensure senator at that height proposed the block
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 	defer close(abort)
 
@@ -1144,17 +1191,36 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		} else {
 			parent = chain[i-1]
 		}
+
+		// alias state.New because we introduce a variable named state on the next line
+		stateNew := state.New
+		//DONE: Create a new public statedb using the parent block and report an
+		// error if it fails.
 		state, err := state.New(parent.Root(), bc.stateCache)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
-		// Process block using the parent state as reference point.
-		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
+		//DONE: Create a new private statedb using the parent block and report an
+		// error if it fails.
+		privateStateRoot := rawdb.GetPrivateStateRoot(bc.db, parent.Root())
+		privateState, err := stateNew(privateStateRoot, bc.privateStateCache)
+		if err != nil {
+			return i, events, coalescedLogs, err
+		}
+
+		// TODO: Process block using the parent state as reference point.
+		// Takes the block to be processed and the statedb upon which the
+		// initial state is based. It should return the public and private receipts generated, amount
+		// of gas used in the process and return an error if any of the internal rules
+		// failed.
+		receipts, privateReceipts, logs, usedGas, err := bc.processor.Process(block, state, privateState, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
-		// Validate the state using the default validator
+
+		// DONE: Validate the state using the default validator, verify header against smart contract state
+		// ensuring block was created by an elected block maker
 		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1162,9 +1228,25 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		proctime := time.Since(bstart)
 
+		//DONE: Write to private state trie
+		if privateStateRoot, err = privateState.Commit(bc.chainConfig.IsEIP158(block.Number())); err != nil {
+			return i, events, coalescedLogs, err
+		}
+		if err := rawdb.WritePrivateStateRoot(bc.db, block.Root(), privateStateRoot); err != nil {
+			return i, events, coalescedLogs, err
+		}
+
+		// DONE: merge receipts
+		allReceipts := mergeReceipts(receipts, privateReceipts)
+
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteBlockWithState(block, receipts, state)
+		status, err := bc.WriteBlockWithState(block, allReceipts, state)
 		if err != nil {
+			return i, events, coalescedLogs, err
+		}
+
+		// NOTE: creates a bloom filter for the given receipts and saves it to the database
+		if err := rawdb.WritePrivateBlockBloom(bc.db, block.NumberU64(), privateReceipts); err != nil {
 			return i, events, coalescedLogs, err
 		}
 		switch status {

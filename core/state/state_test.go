@@ -16,6 +16,7 @@
 
 package state
 
+//TODO: fix tests, also not passing on jpmorgan/quorum
 import (
 	"bytes"
 	"math/big"

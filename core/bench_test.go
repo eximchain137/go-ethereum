@@ -16,6 +16,7 @@
 
 package core
 
+//TODO: tests also failing on jpmorgan/quorum
 import (
 	"crypto/ecdsa"
 	"io/ioutil"
