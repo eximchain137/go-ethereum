@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -91,6 +92,9 @@ type environment struct {
 	header   *types.Header
 	txs      []*types.Transaction
 	receipts []*types.Receipt
+
+	privateReceipts []*types.Receipt
+	privateState    *state.StateDB
 }
 
 // task contains all information for consensus engine sealing and result submitting.
@@ -99,6 +103,8 @@ type task struct {
 	state     *state.StateDB
 	block     *types.Block
 	createdAt time.Time
+
+	privateReceipts []*types.Receipt
 }
 
 const (
@@ -241,14 +247,14 @@ func (w *worker) setRecommitInterval(interval time.Duration) {
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker) pending() (*types.Block, *state.StateDB) {
+func (w *worker) pending() (*types.Block, *state.StateDB, *state.StateDB) {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
 	if w.snapshotState == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
-	return w.snapshotBlock, w.snapshotState.Copy()
+	return w.snapshotBlock, w.snapshotState.Copy(), w.current.privateState.Copy()
 }
 
 // pendingBlock returns pending block.
@@ -393,6 +399,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 	}
 }
 
+// update() in geth 1.7
 // mainLoop is a standalone goroutine to regenerate the sealing task based on the received event.
 func (w *worker) mainLoop() {
 	defer w.txsSub.Unsubscribe()
@@ -519,6 +526,7 @@ func (w *worker) taskLoop() {
 	}
 }
 
+//TODO: wait in geth 1.7
 // resultLoop is a standalone goroutine to handle sealing result submitting
 // and flush relative data to the database.
 func (w *worker) resultLoop() {
@@ -534,6 +542,7 @@ func (w *worker) resultLoop() {
 				continue
 			}
 			var (
+				//NOTE: blockhash prior to being sealed
 				sealhash = w.engine.SealHash(block.Header())
 				hash     = block.Hash()
 			)
@@ -546,10 +555,10 @@ func (w *worker) resultLoop() {
 			}
 			// Different block could share same sealhash, deep copy here to prevent write-write conflict.
 			var (
-				receipts = make([]*types.Receipt, len(task.receipts))
+				receipts = make([]*types.Receipt, len(task.receipts)+len(task.privateReceipts))
 				logs     []*types.Log
 			)
-			for i, receipt := range task.receipts {
+			for i, receipt := range append(task.receipts, task.privateReceipts...) {
 				receipts[i] = new(types.Receipt)
 				*receipts[i] = *receipt
 				// Update the block hash in all logs since it is now available and not when the
@@ -559,6 +568,10 @@ func (w *worker) resultLoop() {
 				}
 				logs = append(logs, receipt.Logs...)
 			}
+			// TODO: write private state, leave of of task which will be sealed for public state consensus checks
+			deleteEmptyObjects := w.config.IsEIP158(block.Number())
+			privateStateRoot, err := w.current.privateState.Commit(deleteEmptyObjects)
+			rawdb.WritePrivateStateRoot(w.eth.ChainDb(), block.Root(), privateStateRoot)
 			// Commit block and state to database.
 			stat, err := w.chain.WriteBlockWithState(block, receipts, task.state)
 			if err != nil {
@@ -592,17 +605,18 @@ func (w *worker) resultLoop() {
 
 // makeCurrent creates a new environment for the current cycle.
 func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
-	state, err := w.chain.StateAt(parent.Root())
+	state, privateState, err := w.chain.StateAt(parent.Root())
 	if err != nil {
 		return err
 	}
 	env := &environment{
-		signer:    types.NewEIP155Signer(w.config.ChainID),
-		state:     state,
-		ancestors: mapset.NewSet(),
-		family:    mapset.NewSet(),
-		uncles:    mapset.NewSet(),
-		header:    header,
+		signer:       types.NewEIP155Signer(w.config.ChainID),
+		state:        state,
+		ancestors:    mapset.NewSet(),
+		family:       mapset.NewSet(),
+		uncles:       mapset.NewSet(),
+		header:       header,
+		privateState: privateState,
 	}
 
 	// when 08 is processed ancestors contain 07 (quick block)
@@ -671,16 +685,23 @@ func (w *worker) updateSnapshot() {
 
 func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Address) ([]*types.Log, error) {
 	snap := w.current.state.Snapshot()
+	privateSnap := w.current.privateState.Snapshot()
 
-	receipt, _, err := core.ApplyTransaction(w.config, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.header, tx, &w.current.header.GasUsed, vm.Config{})
+	receipt, privateReceipt, _, err := core.ApplyTransaction(w.config, w.chain, &coinbase, w.current.gasPool, w.current.state, w.current.privateState, w.current.header, tx, &w.current.header.GasUsed, vm.Config{})
 	if err != nil {
 		w.current.state.RevertToSnapshot(snap)
+		w.current.privateState.RevertToSnapshot(privateSnap)
 		return nil, err
 	}
 	w.current.txs = append(w.current.txs, tx)
+	//TODO: implement private transactions
 	w.current.receipts = append(w.current.receipts, receipt)
-
-	return receipt.Logs, nil
+	logs := receipt.Logs
+	if privateReceipt != nil {
+		logs = append(receipt.Logs, privateReceipt.Logs...)
+		w.current.privateReceipts = append(w.current.privateReceipts, privateReceipt)
+	}
+	return logs, nil
 }
 
 func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coinbase common.Address, interrupt *int32) bool {
@@ -741,6 +762,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		}
 		// Start executing the transaction
 		w.current.state.Prepare(tx.Hash(), common.Hash{}, w.current.tcount)
+		w.current.privateState.Prepare(tx.Hash(), common.Hash{}, w.current.tcount)
 
 		logs, err := w.commitTransaction(tx, coinbase)
 		switch err {
@@ -956,4 +978,21 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 		w.updateSnapshot()
 	}
 	return nil
+}
+
+func mergeReceipts(pub, priv types.Receipts) types.Receipts {
+	m := make(map[common.Hash]*types.Receipt)
+	for _, receipt := range pub {
+		m[receipt.TxHash] = receipt
+	}
+	for _, receipt := range priv {
+		m[receipt.TxHash] = receipt
+	}
+
+	ret := make(types.Receipts, 0, len(pub))
+	for _, pubReceipt := range pub {
+		ret = append(ret, m[pubReceipt.TxHash])
+	}
+
+	return ret
 }
