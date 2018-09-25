@@ -60,17 +60,12 @@ func ExampleMakeCallHelper() {
 	// Initialise custom code for public contract
 	helper.PublicState.SetCode(pubContractAddr, common.Hex2Bytes("601460005500"))
 
-	// Make a call to the private contract
-	err := helper.MakeCall(true, key, prvContractAddr, nil)
+	// Make a call to the public contract
+	err := helper.MakeCall(false, key, pubContractAddr, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	// Make a call to the public contract
-	err = helper.MakeCall(false, key, pubContractAddr, nil)
-	if err != nil {
-		fmt.Println(err)
-	}
 	// Make a call to the public contract
 	err = helper.MakeCall(false, key, pubContractAddr, nil)
 	if err != nil {

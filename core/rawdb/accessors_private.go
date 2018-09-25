@@ -29,13 +29,13 @@ var (
 	privateBloomPrefix         = []byte("Pb")
 )
 
-//GetPrivateStateRoot TODO: COMMENT
+//GetPrivateStateRoot utility to get private hate root hash
 func GetPrivateStateRoot(db DatabaseReader, blockRoot common.Hash) common.Hash {
 	root, _ := db.Get(append(privateRootPrefix, blockRoot[:]...))
 	return common.BytesToHash(root)
 }
 
-//WritePrivateStateRoot TODO: Comment
+//WritePrivateStateRoot utility to write private root hash
 func WritePrivateStateRoot(db DatabaseWriter, blockRoot, root common.Hash) error {
 	return db.Put(append(privateRootPrefix, blockRoot[:]...), root[:])
 }

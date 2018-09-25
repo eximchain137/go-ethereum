@@ -413,7 +413,7 @@ func (m Message) Nonce() uint64        { return m.nonce }
 func (m Message) Data() []byte         { return m.data }
 func (m Message) CheckNonce() bool     { return m.checkNonce }
 
-//TODO: Flag and check for private transactions
+//DONE: Flag and check for private transactions
 
 func (m Message) IsPrivate() bool {
 	return m.isPrivate

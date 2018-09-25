@@ -1195,7 +1195,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction, isPrivate bool) (common.Hash, error) {
-	// TODO: set transation to private at the last minute
+	// DONE: set transation to private at the last minute
 	if isPrivate {
 		//essentially adds 10 to the V value
 		tx.SetPrivate()
@@ -1395,7 +1395,7 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 				sendArgs.Gas = gasLimit
 			}
 			newTx := sendArgs.toTransaction()
-			//TODO: set the tx as private at the last possible minute
+			//DONE: set the tx as private at the last possible minute
 			if len(sendArgs.PrivateFor) > 0 {
 				newTx.SetPrivate()
 			}

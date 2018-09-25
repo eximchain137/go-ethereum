@@ -526,7 +526,6 @@ func (w *worker) taskLoop() {
 	}
 }
 
-//TODO: wait in geth 1.7
 // resultLoop is a standalone goroutine to handle sealing result submitting
 // and flush relative data to the database.
 func (w *worker) resultLoop() {
@@ -568,7 +567,7 @@ func (w *worker) resultLoop() {
 				}
 				logs = append(logs, receipt.Logs...)
 			}
-			// TODO: write private state, leave of of task which will be sealed for public state consensus checks
+			// DONE: write private state, leave of of task which will be sealed for public state consensus checks
 			deleteEmptyObjects := w.config.IsEIP158(block.Number())
 			privateStateRoot, err := w.current.privateState.Commit(deleteEmptyObjects)
 			rawdb.WritePrivateStateRoot(w.eth.ChainDb(), block.Root(), privateStateRoot)
@@ -605,13 +604,13 @@ func (w *worker) resultLoop() {
 
 // makeCurrent creates a new environment for the current cycle.
 func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
-	state, privateState, err := w.chain.StateAt(parent.Root())
+	publicState, privateState, err := w.chain.StateAt(parent.Root())
 	if err != nil {
 		return err
 	}
 	env := &environment{
 		signer:       types.NewEIP155Signer(w.config.ChainID),
-		state:        state,
+		state:        publicState,
 		ancestors:    mapset.NewSet(),
 		family:       mapset.NewSet(),
 		uncles:       mapset.NewSet(),
@@ -694,7 +693,7 @@ func (w *worker) commitTransaction(tx *types.Transaction, coinbase common.Addres
 		return nil, err
 	}
 	w.current.txs = append(w.current.txs, tx)
-	//TODO: implement private transactions
+	//DONE: implement private transactions
 	w.current.receipts = append(w.current.receipts, receipt)
 	logs := receipt.Logs
 	if privateReceipt != nil {

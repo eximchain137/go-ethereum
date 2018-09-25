@@ -99,7 +99,7 @@ func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 	if header == nil || err != nil {
 		return nil, nil, err
 	}
-	// DEBUG: private state
+	// TODO: private state
 	stateDb, _, err := b.eth.BlockChain().StateAt(header.Root)
 	return stateDb, header, err
 }

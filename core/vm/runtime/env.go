@@ -36,6 +36,6 @@ func NewEnv(cfg *Config) *vm.EVM {
 		GasLimit:    cfg.GasLimit,
 		GasPrice:    cfg.GasPrice,
 	}
-	// TODO: inject private state to environment
+	// DONE: inject private state to environment
 	return vm.NewEVM(context, cfg.State, cfg.State, cfg.ChainConfig, cfg.EVMConfig)
 }

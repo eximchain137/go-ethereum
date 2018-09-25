@@ -53,7 +53,7 @@ func (cg *callHelper) MakeCall(private bool, key *ecdsa.PrivateKey, to common.Ad
 		return err
 	}
 	// note: we do not get nonce from pending state
-	//defer func() { cg.nonces[from]++ }()
+	defer func() { cg.nonces[from]++ }()
 	msg, err := tx.AsMessage(signer)
 	if err != nil {
 		return err

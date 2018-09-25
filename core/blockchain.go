@@ -196,7 +196,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		}
 	}
 	// Take ownership of this particular state
-	// TODO: Insert private transactions on update
+	// DONE: Insert private transactions on update
 	go bc.update()
 	return bc, nil
 }
@@ -230,7 +230,7 @@ func (bc *BlockChain) loadLastState() error {
 			return err
 		}
 	}
-	// TODO: Make sure the private state associated with the block is available in cache
+	// DONE: Make sure the private state associated with the block is available in cache
 	if _, err := state.New(rawdb.GetPrivateStateRoot(bc.db, currentBlock.Root()), bc.privateStateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head private state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
@@ -391,13 +391,13 @@ func (bc *BlockChain) Processor() Processor {
 }
 
 // State returns a new mutable state based on the current HEAD block.
-// TODO: Should return public and private state
+// DONE: Should return public and private state
 func (bc *BlockChain) State() (*state.StateDB, *state.StateDB, error) {
 	return bc.StateAt(bc.CurrentBlock().Root())
 }
 
 // StateAt returns a new mutable state based on a particular point in time.
-// TODO: Should return public and private state
+// DONE: Should return public and private state
 func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, *state.StateDB, error) {
 	publicState, err := state.New(root, bc.stateCache)
 	if err != nil {
@@ -1208,7 +1208,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, err
 		}
 
-		// TODO: Process block using the parent state as reference point.
+		// DONE: Process block using the parent state as reference point.
 		// Takes the block to be processed and the statedb upon which the
 		// initial state is based. It should return the public and private receipts generated, amount
 		// of gas used in the process and return an error if any of the internal rules

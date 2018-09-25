@@ -77,7 +77,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb, privateState *stat
 		// and uses the input parameters for its environment. It returns the receipt
 		// for the public/private transaction, gas used and an error if the transaction failed,
 		// indicating the block was invalid.
-		// TODO: Test
+		// DONE: Test
 		receipt, privateReceipt, _, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, privateState, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, nil, 0, err
@@ -121,11 +121,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	// DONE: pass privatestate into EVM to apply tx
-	// TODO: test
+	// DONE: test
 	vmenv := vm.NewEVM(context, statedb, privateState, config, cfg)
 	// Apply the transaction to the current state (included in the env)
 	// LATEST.
-	// TODO: use new EVM enabled with private state to compute the
+	// DONE: use new EVM enabled with private state to compute the
 	// new public/private state by applying the given message against
 	// the old state within the environment.
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)

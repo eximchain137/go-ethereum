@@ -509,7 +509,7 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
 
-//TODO: private state EVM semantics
+//DONE: private state EVM semantics
 func getDualState(env *EVM, addr common.Address) StateDB {
 	// priv: (a) -> (b)  (private)
 	// pub:   a  -> [b]  (private -> public)
