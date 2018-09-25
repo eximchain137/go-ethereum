@@ -196,8 +196,10 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 	if homestead && s.Cmp(secp256k1halfN) > 0 {
 		return false
 	}
+	// TODO: allow private v values to be valid these will end up 20 over normal v values since we use 47, 48 instead of 27 , 28
+	// NOTE: using homestead signer for private stransactions so v devrived will be this + 27
 	// Frontier: allow s to be in full N range
-	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1)
+	return r.Cmp(secp256k1N) < 0 && s.Cmp(secp256k1N) < 0 && (v == 0 || v == 1 || v == 20 || v == 21)
 }
 
 func PubkeyToAddress(p ecdsa.PublicKey) common.Address {

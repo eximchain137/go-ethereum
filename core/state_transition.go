@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/jpmorganchase/quorum/private"
 )
 
 var (
@@ -138,12 +139,29 @@ func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, 
 	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
-// to returns the recipient of the message.
-func (st *StateTransition) to() common.Address {
-	if st.msg == nil || st.msg.To() == nil /* contract creation */ {
-		return common.Address{}
+func (st *StateTransition) from() vm.AccountRef {
+	f := st.msg.From()
+	if !st.state.Exist(f) {
+		st.state.CreateAccount(f)
 	}
-	return *st.msg.To()
+	return vm.AccountRef(f)
+}
+
+// to returns the recipient of the message.
+func (st *StateTransition) to() vm.AccountRef {
+	if st.msg == nil {
+		return vm.AccountRef{}
+	}
+	to := st.msg.To()
+	if to == nil {
+		return vm.AccountRef{} // contract creation
+	}
+
+	reference := vm.AccountRef(*to)
+	if !st.state.Exist(*to) {
+		st.state.CreateAccount(*to)
+	}
+	return reference
 }
 
 func (st *StateTransition) useGas(amount uint64) error {
@@ -171,12 +189,15 @@ func (st *StateTransition) buyGas() error {
 }
 
 func (st *StateTransition) preCheck() error {
-	// Make sure this transaction's nonce is correct.
-	if st.msg.CheckNonce() {
-		nonce := st.state.GetNonce(st.msg.From())
-		if nonce < st.msg.Nonce() {
+	msg := st.msg
+	sender := st.from()
+
+	// Make sure this transaction's nonce is correct
+	if msg.CheckNonce() {
+		nonce := st.state.GetNonce(sender.Address())
+		if nonce < msg.Nonce() {
 			return ErrNonceTooHigh
-		} else if nonce > st.msg.Nonce() {
+		} else if nonce > msg.Nonce() {
 			return ErrNonceTooLow
 		}
 	}
@@ -192,26 +213,28 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		return
 	}
 	msg := st.msg
-	sender := vm.AccountRef(msg.From())
+	sender := st.from()
+
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
+	privacyProtocol := true
 
 	var data []byte
 	isPrivate := false
 	publicState := st.state
 	//TODO: implement PrivateMessage Struct to wrap Message interface
-	if msg, ok := msg.(PrivateMessage); ok && msg.IsPrivate() {
+	if msg, ok := msg.(PrivateMessage); ok && privacyProtocol && msg.IsPrivate() {
 		isPrivate = true
 		//TODO: actually fetch the private transaction from constellation
 		//data, err = private.P.Receive(st.data)
-		data, err = st.data, nil
+		data, err = private.P.Receive(st.data)
 		// Increment the public account nonce if:
 		// 1. Tx is private and *not* a participant of the group and either call or create
 		// 2. Tx is private we are part of the group and is a call
 		// NOTE: smells in original why not pass back error?
-		if err != nil || !contractCreation {
-			publicState.SetNonce(sender.Address(), publicState.GetNonce(sender.Address())+1)
-		}
+		// if err != nil || !contractCreation {
+		// 	publicState.SetNonce(sender.Address(), publicState.GetNonce(sender.Address())+1)
+		// }
 		if err != nil {
 			return nil, 0, false, err
 		}
@@ -220,7 +243,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 
 	// Pay intrinsic gas
-	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
+	gas, err := IntrinsicGas(data, contractCreation, homestead)
 	if err != nil {
 		return nil, 0, false, err
 	}
@@ -236,26 +259,31 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		vmerr error
 	)
 	if contractCreation {
-		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
+		ret, _, st.gas, vmerr = evm.Create(sender, data, st.gas, st.value)
 	} else {
 		// TODO: Increment the account nonce only if the transaction isn't private.
 		// If the transaction is private it has already been incremented on
 		// the public state.
 		if !isPrivate {
-			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+			publicState.SetNonce(sender.Address(), publicState.GetNonce(sender.Address()))
 		}
+		// NOTE: prevent public state being created when a private transaction
+		// call is initiated use the msg's address rather than using the to method
+		// on the state transition object.
+
 		var to common.Address
-		if isPrivate {
-			to = *st.msg.To()
-		} else {
-			to = st.to()
-		}
+		to = *st.msg.To()
+		// if isPrivate {
+		// 	to = *st.msg.To()
+		// } else {
+		// 	to = st.to()
+		// }
 		//if input is empty for a private smart contract call, return
 		if len(data) == 0 && isPrivate {
 			return nil, 0, false, nil
 		}
 		//TODO: rabbit hole
-		ret, st.gas, vmerr = evm.Call(sender, to, st.data, st.gas, st.value)
+		ret, st.gas, vmerr = evm.Call(sender, to, data, st.gas, st.value)
 	}
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)

@@ -419,28 +419,31 @@ func (evm *EVM) create(caller ContractRef, code []byte, gas uint64, value *big.I
 	nonce := creatorStateDb.GetNonce(caller.Address())
 	creatorStateDb.SetNonce(caller.Address(), nonce+1)
 
+	contractAddr := crypto.CreateAddress(caller.Address(), nonce)
 	// Ensure there's no existing contract already at the designated address
-	contractHash := evm.StateDB.GetCodeHash(address)
-	if evm.StateDB.GetNonce(address) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
+	contractHash := evm.StateDB.GetCodeHash(contractAddr)
+	if evm.StateDB.GetNonce(contractAddr) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
 		return nil, common.Address{}, 0, ErrContractAddressCollision
 	}
 	// Create a new account on the state
 	snapshot := evm.StateDB.Snapshot()
-	evm.StateDB.CreateAccount(address)
+	evm.StateDB.CreateAccount(contractAddr)
 	if evm.ChainConfig().IsEIP158(evm.BlockNumber) {
-		evm.StateDB.SetNonce(address, 1)
+		evm.StateDB.SetNonce(contractAddr, 1)
 	}
 	// DONE: skip transfer if value /= 0 (see note: Quorum, States, and Value Transfer)
-	if value.Sign() != 0 && evm.quorumReadOnly {
-		return nil, common.Address{}, gas, ErrReadOnlyValueTransfer
+	if value.Sign() != 0 {
+		if evm.quorumReadOnly {
+			return nil, common.Address{}, gas, ErrReadOnlyValueTransfer
+		}
+		evm.Transfer(evm.StateDB, caller.Address(), contractAddr, value)
 	}
-	evm.Transfer(evm.StateDB, caller.Address(), address, value)
 
 	// initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
-	contract := NewContract(caller, AccountRef(address), value, gas)
-	contract.SetCallCode(&address, crypto.Keccak256Hash(code), code)
+	contract := NewContract(caller, AccountRef(contractAddr), value, gas)
+	contract.SetCallCode(&contractAddr, crypto.Keccak256Hash(code), code)
 
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, address, gas, nil
