@@ -20,8 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/jpmorganchase/quorum/private"
-	"github.com/jpmorganchase/quorum/private/constellation"
+	"github.com/ethereum/go-ethereum/private"
+	"github.com/ethereum/go-ethereum/private/constellation"
 )
 
 // callmsg is the message type used for call transactions in the private state test
@@ -62,6 +62,32 @@ func ExampleMakeCallHelper() {
 
 	// Make a call to the public contract
 	err := helper.MakeCall(false, key, pubContractAddr, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// Make a call to the public contract
+	err = helper.MakeCall(false, key, pubContractAddr, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// Make a call to the private contract
+	err = helper.MakeCall(true, key, prvContractAddr, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// Make a call to the private contract
+	err = helper.MakeCall(true, key, prvContractAddr, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// Make a call to the private contract
+	err = helper.MakeCall(true, key, prvContractAddr, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// Make a call to the public contract
+	err = helper.MakeCall(false, key, pubContractAddr, nil)
 	if err != nil {
 		fmt.Println(err)
 	}
