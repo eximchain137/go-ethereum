@@ -696,6 +696,8 @@ func TestHashimoto(t *testing.T) {
 }
 
 // Tests that caches generated on disk may be done concurrently.
+// this test is currently failing because of the changes to how headers work where we pad the extra data with a 65 byte array.
+// In the ethash.VerifySeal section we need to pass to authorize like we did in ethash_test.go. Or have
 func TestConcurrentDiskCacheGeneration(t *testing.T) {
 	// Create a temp folder to generate the caches into
 	cachedir, err := ioutil.TempDir("", "")

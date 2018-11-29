@@ -148,6 +148,7 @@ func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan s
 	log.Info("WEYL CONSENSUS:", "HeaderBC", header.Extra)
 	// sign the SealHash
 	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+
 	if err != nil {
 		// could not sign hash
 		panic(err)
@@ -155,6 +156,7 @@ func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan s
 
 	//copy signature into allocated Extra data
 	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+
 	log.Info("WEYL CONSENSUS:", "HeaderAD", header.Extra)
 
 	// Extract some data from the header

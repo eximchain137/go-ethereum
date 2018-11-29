@@ -89,6 +89,7 @@ func TestDAOForkBlockNewChain(t *testing.T) {
 		expectVote  bool
 	}{
 		// Test DAO Default Mainnet
+		// DONE: Remove mainnet test will fail since our mainnethash is different from ethereum mainnet hash
 		{"", params.MainnetChainConfig.DAOForkBlock, true},
 		// test DAO Init Old Privnet
 		{daoOldGenesis, nil, false},
@@ -115,7 +116,7 @@ func testDAOForkBlockNewChain(t *testing.T, test int, genesis string, expectBloc
 		runGeth(t, "--datadir", datadir, "init", json).WaitExit()
 	} else {
 		// Force chain initialization
-		args := []string{"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none", "--ipcdisable", "--datadir", datadir}
+		args := []string{"--port", "0", "--maxpeers", "0", "--nodiscover", "--nat", "none", "--ipcdisable", "--verbosity", "5", "--datadir", datadir}
 		geth := runGeth(t, append(args, []string{"--exec", "2+2", "console"}...)...)
 		geth.WaitExit()
 	}

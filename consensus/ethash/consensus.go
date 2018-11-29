@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -292,12 +293,12 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 
 	//TODO: Fork logic incase of DAO like event
 	// If all checks passed, validate any special fields for hard forks
-	// if err := misc.VerifyDAOHeaderExtraData(chain.Config(), header); err != nil {
-	// 	return err
-	// }
-	// if err := misc.VerifyForkHashes(chain.Config(), header, uncle); err != nil {
-	// 	return err
-	// }
+	if err := misc.VerifyDAOHeaderExtraData(chain.Config(), header); err != nil {
+		return err
+	}
+	if err := misc.VerifyForkHashes(chain.Config(), header, uncle); err != nil {
+		return err
+	}
 	return nil
 }
 
