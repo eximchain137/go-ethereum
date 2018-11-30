@@ -749,12 +749,12 @@ func (ethash *Ethash) isBlockMaker(addr common.Address) (bool, error) {
 	//DONE: hook up smart contract governance
 	//TODO: FLIP BACK TO SMART CONTRACT AFTER WE MAKE SURE ALL TESTS ARE PASSING
 
-	// ok, err := ethash.callContract.IsBlockMaker(nil, addr)
-	// if err != nil {
-	// 	return false, err
-	// }
-	// return ok, nil
-	return true, nil
+	ok, err := ethash.callContract.IsBlockMaker(nil, addr)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+	//return true, nil
 }
 
 // SignerFn is a signer callback function to request a hash to be signed by a
