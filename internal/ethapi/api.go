@@ -372,16 +372,18 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		s.nonceLock.LockAddr(args.From)
 		defer s.nonceLock.UnlockAddr(args.From)
 	}
-	data := []byte(args.Data)
+
 	isPrivate := args.PrivateFor != nil
 	if isPrivate {
+		data := []byte(args.Data)
 		log.Info("sending private tx", "data", fmt.Sprintf("%x", data), "privatefrom", args.PrivateFrom, "privatefor", args.PrivateFor)
 		data, err := private.P.Send(data, args.PrivateFrom, args.PrivateFor)
 		log.Info("sent private tx", "data", fmt.Sprintf("%x", data), "privatefrom", args.PrivateFrom, "privatefor", args.PrivateFor)
 		if err != nil {
 			return common.Hash{}, err
 		}
-		args.Data = data
+		hexData := hexutil.Bytes(data)
+		args.Data = hexData
 	}
 
 	signed, err := s.signTransaction(ctx, args, passwd)
