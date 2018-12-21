@@ -16,6 +16,7 @@
 
 package state
 
+//DONE: fix tests, also not passing on jpmorgan/quorum
 import (
 	"bytes"
 	"encoding/binary"

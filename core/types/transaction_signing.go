@@ -198,6 +198,7 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 	}
 	r = new(big.Int).SetBytes(sig[:32])
 	s = new(big.Int).SetBytes(sig[32:64])
+	// note: SignatureValues
 	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
 	return r, s, v, nil
 }
