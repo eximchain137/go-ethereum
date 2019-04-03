@@ -31,9 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -58,6 +56,16 @@ var (
 	errInvalidDifficulty = errors.New("non-positive difficulty")
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
+	// errUnknownBlock is returned when the list of signers is requested for a block
+	// that is not part of the local blockchain.
+	errUnknownBlock = errors.New("unknown block")
+)
+
+// proof-of-authority protocol constants.
+var (
+	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
+	// blockPeriod = uint64(15)    // Default minimum difference between two consecutive block's timestamps
+	// uncleHash = types.CalcUncleHash(nil) // Always Keccak256(RLP([])) as uncles are meaningless outside of PoW.
 )
 
 // Author implements consensus.Engine, returning the header's coinbase as the
@@ -270,12 +278,20 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
 		return consensus.ErrInvalidNumber
 	}
+	//DONE: don't check genesis block extradata, block 0 should never hit ethash.VerifySeal
+	// The genesis block is the always valid dead-end
+	number := header.Number.Uint64()
+	if number == 0 {
+		return nil
+	}
 	// Verify the engine specific seal securing the block
 	if seal {
 		if err := ethash.VerifySeal(chain, header); err != nil {
 			return err
 		}
 	}
+
+	//TODO: Fork logic incase of DAO like event
 	// If all checks passed, validate any special fields for hard forks
 	if err := misc.VerifyDAOHeaderExtraData(chain.Config(), header); err != nil {
 		return err
@@ -470,6 +486,11 @@ func (ethash *Ethash) VerifySeal(chain consensus.ChainReader, header *types.Head
 // either using the usual ethash cache for it, or alternatively using a full DAG
 // to make remote mining fast.
 func (ethash *Ethash) verifySeal(chain consensus.ChainReader, header *types.Header, fulldag bool) error {
+	// DONE: Verifying the genesis block is not supported this is green lit in verify header
+	number := header.Number.Uint64()
+	if number == 0 {
+		return errUnknownBlock
+	}
 	// If we're running a fake PoW, accept any seal as valid
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		time.Sleep(ethash.fakeDelay)
@@ -487,8 +508,6 @@ func (ethash *Ethash) verifySeal(chain consensus.ChainReader, header *types.Head
 		return errInvalidDifficulty
 	}
 	// Recompute the digest and PoW values
-	number := header.Number.Uint64()
-
 	var (
 		digest []byte
 		result []byte
@@ -529,6 +548,15 @@ func (ethash *Ethash) verifySeal(chain consensus.ChainReader, header *types.Head
 	if new(big.Int).SetBytes(result).Cmp(target) > 0 {
 		return errInvalidPoW
 	}
+	// DONE: Resolve the blockmaker key and governance smart contract
+	signer, err := ecrecover(header)
+	if err != nil {
+		return errUnauthorized
+	}
+	if ok, err := ethash.isBlockMaker(signer); !ok {
+		return err
+	}
+
 	return nil
 }
 
@@ -540,6 +568,16 @@ func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header)
 		return consensus.ErrUnknownAncestor
 	}
 	header.Difficulty = ethash.CalcDifficulty(chain, header.Time.Uint64(), parent)
+	// DONE: Ensure the extra data has all it's components
+	// pad the vanity extra data incase it was set (max is 32 bytes)
+	if len(header.Extra) < extraVanity {
+		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
+	}
+	// grab the right padded vanity
+	header.Extra = header.Extra[:extraVanity]
+	// add 65bytes to it for blockhash signature
+	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
+
 	return nil
 }
 
@@ -556,25 +594,7 @@ func (ethash *Ethash) Finalize(chain consensus.ChainReader, header *types.Header
 
 // SealHash returns the hash of a block prior to it being sealed.
 func (ethash *Ethash) SealHash(header *types.Header) (hash common.Hash) {
-	hasher := sha3.NewKeccak256()
-
-	rlp.Encode(hasher, []interface{}{
-		header.ParentHash,
-		header.UncleHash,
-		header.Coinbase,
-		header.Root,
-		header.TxHash,
-		header.ReceiptHash,
-		header.Bloom,
-		header.Difficulty,
-		header.Number,
-		header.GasLimit,
-		header.GasUsed,
-		header.Time,
-		header.Extra,
-	})
-	hasher.Sum(hash[:0])
-	return hash
+	return sigHash(header)
 }
 
 // Some weird constants to avoid constant memory allocs for them.

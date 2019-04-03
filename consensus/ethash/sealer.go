@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -43,6 +44,8 @@ const (
 var (
 	errNoMiningWork      = errors.New("no mining work available yet")
 	errInvalidSealResult = errors.New("invalid or stale proof-of-work solution")
+	// errUnauthorized is returned if a header is signed by a non-authorized entity.
+	errUnauthorized = errors.New("unauthorized")
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
@@ -59,6 +62,12 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, resu
 		}
 		return nil
 	}
+
+	// TODO: Bail out if we're unauthorized to sign a block
+	if ok, err := ethash.isBlockMaker(block.Coinbase()); !ok {
+		return err
+	}
+
 	// If we're running a shared PoW, delegate sealing to it
 	if ethash.shared != nil {
 		return ethash.shared.Seal(chain, block, results, stop)
@@ -129,9 +138,29 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, resu
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
 func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
+	// grab the key
+	ethash.slock.RLock()
+	signer, signFn := ethash.signer, ethash.signFn
+	ethash.slock.RUnlock()
+	// grab the header
+	header := block.Header()
+	log.Info("WEYL CONSENSUS:", "address", signer)
+	log.Info("WEYL CONSENSUS:", "HeaderBC", header.Extra)
+	// sign the SealHash
+	sighash, err := signFn(accounts.Account{Address: signer}, sigHash(header).Bytes())
+
+	if err != nil {
+		// could not sign hash
+		panic(err)
+	}
+
+	//copy signature into allocated Extra data
+	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
+
+	log.Info("WEYL CONSENSUS:", "HeaderAD", header.Extra)
+
 	// Extract some data from the header
 	var (
-		header  = block.Header()
 		hash    = ethash.SealHash(header).Bytes()
 		target  = new(big.Int).Div(two256, header.Difficulty)
 		number  = header.Number.Uint64()
